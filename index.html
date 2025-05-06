@@ -141,6 +141,10 @@
   <!-- Adicionar meta tags para SEO -->
   <meta name="description" content="Área exclusiva para alunos com conteúdo educacional">
   <meta name="robots" content="noindex"> <!-- Já que é área privada -->
+
+  <script src="https://www.gstatic.com/firebasejs/9.x.x/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.x.x/firebase-auth.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.x.x/firebase-firestore.js"></script>
 </head>
 <body>
 
@@ -206,8 +210,8 @@
     let loginAttempts = 0;
     let lastAttemptTime = 0;
     
-    // 3. Lista de usuários com senhas criptografadas
-    const usuarios = [
+    // 3. Inicializa ou carrega usuários do localStorage
+    const usuarios = JSON.parse(localStorage.getItem('usuarios')) || [
       { 
         nome: "Ana", 
         senha: CryptoJS.SHA256("ana2024" + SECRET_KEY).toString()
@@ -226,7 +230,20 @@
       }
     ];
 
-    function verificarSenha() {
+    // Salva os usuários iniciais se não existirem no localStorage
+    if (!localStorage.getItem('usuarios')) {
+      localStorage.setItem('usuarios', JSON.stringify(usuarios));
+    }
+
+    // Configuração do Firebase
+    const firebaseConfig = {
+      // suas credenciais do Firebase
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+
+    async function verificarSenha() {
       const button = document.querySelector('button[type="submit"]');
       button.disabled = true;
       button.textContent = 'Verificando...';
@@ -250,36 +267,45 @@
       // 6. Verifica a senha
       const senhaDigitada = document.getElementById("senha").value.trim();
       const senhaHash = CryptoJS.SHA256(senhaDigitada + SECRET_KEY).toString();
-      const usuario = usuarios.find(u => u.senha === senhaHash);
 
-      if (usuario) {
-        // 7. Login bem sucedido
-        loginAttempts = 0;
-        
-        // 8. Salva a sessão
-        const sessionData = {
-          nome: usuario.nome,
-          expira: new Date().getTime() + (2 * 60 * 60 * 1000) // 2 horas
-        };
-        
-        localStorage.setItem('sessaoAluno', 
-          CryptoJS.AES.encrypt(JSON.stringify(sessionData), SECRET_KEY).toString()
-        );
+      try {
+        const usuarioDoc = await db.collection('usuarios')
+          .where('senha', '==', senhaHash)
+          .get();
 
-        sessionStorage.setItem('usuarioLogado', JSON.stringify(usuario));
+        if (!usuarioDoc.empty) {
+          const usuario = usuarioDoc.docs[0].data();
+          // 7. Login bem sucedido
+          loginAttempts = 0;
+          
+          // 8. Salva a sessão
+          const sessionData = {
+            nome: usuario.nome,
+            expira: new Date().getTime() + (2 * 60 * 60 * 1000) // 2 horas
+          };
+          
+          localStorage.setItem('sessaoAluno', 
+            CryptoJS.AES.encrypt(JSON.stringify(sessionData), SECRET_KEY).toString()
+          );
 
-        // 9. Mostra o conteúdo
-        document.getElementById("conteudo").style.display = "block";
-        document.getElementById("formulario-senha").style.display = "none";
-        document.getElementById("boasVindas").innerText = 
-          `Olá, ${usuario.nome}! Bem-vindo(a) à área exclusiva.`;
-      } else {
-        // 10. Senha incorreta
-        loginAttempts++;
-        lastAttemptTime = agora;
-        button.disabled = false;
-        button.textContent = 'Acessar Conteúdo';
-        alert(`Senha incorreta. Tentativa ${loginAttempts} de 5.`);
+          sessionStorage.setItem('usuarioLogado', JSON.stringify(usuario));
+
+          // 9. Mostra o conteúdo
+          document.getElementById("conteudo").style.display = "block";
+          document.getElementById("formulario-senha").style.display = "none";
+          document.getElementById("boasVindas").innerText = 
+            `Olá, ${usuario.nome}! Bem-vindo(a) à área exclusiva.`;
+        } else {
+          // 10. Senha incorreta
+          loginAttempts++;
+          lastAttemptTime = agora;
+          button.disabled = false;
+          button.textContent = 'Acessar Conteúdo';
+          alert(`Senha incorreta. Tentativa ${loginAttempts} de 5.`);
+        }
+      } catch (error) {
+        console.error("Erro:", error);
+        alert("Erro ao verificar senha");
       }
     }
 
@@ -339,7 +365,7 @@
       document.getElementById('confirmarSenha').value = '';
     }
 
-    function trocarSenha(event) {
+    async function trocarSenha(event) {
       event.preventDefault();
       
       const senhaAtual = document.getElementById('senhaAtual').value;
@@ -361,18 +387,52 @@
         return;
       }
       
-      // Atualiza a senha no array de usuários
-      const index = usuarios.findIndex(u => u.senha === senhaAtualHash);
-      if (index !== -1) {
-        usuarios[index].senha = CryptoJS.SHA256(novaSenha + SECRET_KEY).toString();
-        
-        // Atualiza a sessão
-        usuarioLogado.senha = usuarios[index].senha;
-        sessionStorage.setItem('usuarioLogado', JSON.stringify(usuarioLogado));
-        
-        alert('Senha alterada com sucesso!');
-        fecharModalTrocarSenha();
+      try {
+        const usuarioDoc = await db.collection('usuarios')
+          .where('senha', '==', senhaAtualHash)
+          .get();
+
+        if (!usuarioDoc.empty) {
+          await db.collection('usuarios')
+            .doc(usuarioDoc.docs[0].id)
+            .update({
+              senha: CryptoJS.SHA256(novaSenha + SECRET_KEY).toString()
+            });
+            
+          alert('Senha alterada com sucesso!');
+          fecharModalTrocarSenha();
+        }
+      } catch (error) {
+        console.error("Erro:", error);
+        alert("Erro ao alterar senha");
       }
+    }
+
+    // Adicione esta função ao final do script
+    function resetarSenhas() {
+      const usuariosIniciais = [
+        { 
+          nome: "Ana", 
+          senha: CryptoJS.SHA256("ana2024" + SECRET_KEY).toString()
+        },
+        { 
+          nome: "Carlos", 
+          senha: CryptoJS.SHA256("car123" + SECRET_KEY).toString()
+        },
+        { 
+          nome: "Bruno QA", 
+          senha: CryptoJS.SHA256("qaBruno" + SECRET_KEY).toString()
+        },
+        { 
+          nome: "Teste", 
+          senha: CryptoJS.SHA256("1234" + SECRET_KEY).toString()
+        }
+      ];
+      
+      localStorage.setItem('usuarios', JSON.stringify(usuariosIniciais));
+      localStorage.removeItem('sessaoAluno');
+      sessionStorage.removeItem('usuarioLogado');
+      location.reload();
     }
   </script>
 
