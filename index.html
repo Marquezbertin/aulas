@@ -104,14 +104,31 @@
       color: var(--secundaria);
       margin-top: 20px;
     }
+
+    .loading {
+      opacity: 0.7;
+      pointer-events: none;
+    }
+
+    .spinner {
+      display: none;
+      /* Adicionar estilo para spinner de carregamento */
+    }
   </style>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+  <!-- Adicionar preload para recursos importantes -->
+  <link rel="preload" as="video" href="caminho-do-video.mp4">
+  
+  <!-- Adicionar meta tags para SEO -->
+  <meta name="description" content="Área exclusiva para alunos com conteúdo educacional">
+  <meta name="robots" content="noindex"> <!-- Já que é área privada -->
 </head>
 <body>
 
   <h2>Área Exclusiva para Alunos</h2>
 
-  <div id="formulario-senha">
+  <div id="formulario-senha" role="form" aria-labelledby="form-titulo">
+    <h2 id="form-titulo">Área Exclusiva para Alunos</h2>
     <form onsubmit="verificarSenha(); return false;">
       <label for="senha">Digite a senha de acesso:</label>
       <input type="password" id="senha" placeholder="Ex: aluno2025" aria-label="Senha de acesso" required>
@@ -166,12 +183,18 @@
     ];
 
     function verificarSenha() {
+      const button = document.querySelector('button[type="submit"]');
+      button.disabled = true;
+      button.textContent = 'Verificando...';
+
       const agora = new Date().getTime();
       
       // 4. Verifica se está bloqueado
       if (loginAttempts >= 5 && (agora - lastAttemptTime) < 900000) {
         const minutosRestantes = Math.ceil((900000 - (agora - lastAttemptTime)) / 60000);
         alert(`Muitas tentativas. Tente novamente em ${minutosRestantes} minutos.`);
+        button.disabled = false;
+        button.textContent = 'Acessar Conteúdo';
         return;
       }
       
@@ -199,6 +222,8 @@
           CryptoJS.AES.encrypt(JSON.stringify(sessionData), SECRET_KEY).toString()
         );
 
+        sessionStorage.setItem('usuarioLogado', JSON.stringify(usuario));
+
         // 9. Mostra o conteúdo
         document.getElementById("conteudo").style.display = "block";
         document.getElementById("formulario-senha").style.display = "none";
@@ -208,6 +233,8 @@
         // 10. Senha incorreta
         loginAttempts++;
         lastAttemptTime = agora;
+        button.disabled = false;
+        button.textContent = 'Acessar Conteúdo';
         alert(`Senha incorreta. Tentativa ${loginAttempts} de 5.`);
       }
     }
@@ -215,6 +242,7 @@
     function logout() {
       // 11. Limpa a sessão
       localStorage.removeItem('sessaoAluno');
+      sessionStorage.removeItem('usuarioLogado');
       document.getElementById("conteudo").style.display = "none";
       document.getElementById("formulario-senha").style.display = "block";
       document.getElementById("senha").value = "";
@@ -241,6 +269,19 @@
           localStorage.removeItem('sessaoAluno');
         }
       }
+
+      const usuarioLogado = sessionStorage.getItem('usuarioLogado');
+      if (usuarioLogado) {
+        const usuario = JSON.parse(usuarioLogado);
+        document.getElementById("conteudo").style.display = "block";
+        document.getElementById("formulario-senha").style.display = "none";
+        document.getElementById("boasVindas").innerText = `Olá, ${usuario.nome}! Bem-vindo(a) à área exclusiva.`;
+      }
+    }
+
+    window.onerror = function(msg, url, line) {
+      console.error(`Erro: ${msg} na linha ${line}`);
+      alert('Ocorreu um erro. Por favor, tente novamente mais tarde.');
     }
   </script>
 
