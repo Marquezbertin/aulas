@@ -136,15 +136,121 @@
   </style>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
   <!-- Adicionar preload para recursos importantes -->
-  <link rel="preload" as="video" href="caminho-do-video.mp4">
+  <link rel="preload" as="fetch" href="caminho-do-video.mp4">
   
   <!-- Adicionar meta tags para SEO -->
   <meta name="description" content="Área exclusiva para alunos com conteúdo educacional">
   <meta name="robots" content="noindex"> <!-- Já que é área privada -->
+  <meta http-equiv="Content-Security-Policy" content="frame-ancestors 'self' https://docs.google.com">
 
-  <script src="https://www.gstatic.com/firebasejs/9.x.x/firebase-app.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.x.x/firebase-auth.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.x.x/firebase-firestore.js"></script>
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { 
+      getFirestore, 
+      collection, 
+      query, 
+      where, 
+      getDocs, 
+      doc, 
+      updateDoc 
+    } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+    // Your web app's Firebase configuration
+    const firebaseConfig = {
+      apiKey: "AIzaSzE2fKzwn4z1K-s-RE1FkDa5QqAzHrNpojlKU",
+      authDomain: "aulas-projeto.firebaseapp.com",
+      projectId: "aulas-projeto",
+      storageBucket: "aulas-projeto.firebasestorage.app",
+      messagingSenderId: "221727608896",
+      appId: "1:221727608896:web:943024146Bk65037dd0fa3",
+      measurementId: "G-L83YHZ7VGV"
+    };
+
+    // Initialize Firebase
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    // Expor funções para uso global
+    window.verificarSenha = async function(event) {
+      event.preventDefault();
+      const button = document.querySelector('button[type="submit"]');
+      button.disabled = true;
+      button.textContent = 'Verificando...';
+
+      try {
+        const senhaDigitada = document.getElementById("senha").value.trim();
+        const senhaHash = CryptoJS.SHA256(senhaDigitada + SECRET_KEY).toString();
+
+        const usuariosRef = collection(db, 'usuarios');
+        const q = query(usuariosRef, where('senha', '==', senhaHash));
+        const querySnapshot = await getDocs(q);
+
+        if (!querySnapshot.empty) {
+          const usuario = querySnapshot.docs[0].data();
+          const userData = {
+            ...usuario,
+            id: querySnapshot.docs[0].id
+          };
+          
+          sessionStorage.setItem('usuarioLogado', JSON.stringify(userData));
+          
+          document.getElementById("conteudo").style.display = "block";
+          document.getElementById("formulario-senha").style.display = "none";
+          document.getElementById("boasVindas").innerText = 
+            `Olá, ${usuario.nome}! Bem-vindo(a) à área exclusiva.`;
+        } else {
+          alert('Senha incorreta!');
+        }
+      } catch (error) {
+        console.error("Erro:", error);
+        alert("Erro ao verificar senha");
+      } finally {
+        button.disabled = false;
+        button.textContent = 'Acessar Conteúdo';
+      }
+    };
+
+    window.trocarSenha = async function(event) {
+      event.preventDefault();
+      
+      const senhaAtual = document.getElementById('senhaAtual').value;
+      const novaSenha = document.getElementById('novaSenha').value;
+      const confirmarSenha = document.getElementById('confirmarSenha').value;
+      
+      if (novaSenha !== confirmarSenha) {
+        alert('As senhas não coincidem!');
+        return;
+      }
+      
+      try {
+        const usuarioLogado = JSON.parse(sessionStorage.getItem('usuarioLogado'));
+        const senhaAtualHash = CryptoJS.SHA256(senhaAtual + SECRET_KEY).toString();
+        
+        if (senhaAtualHash !== usuarioLogado.senha) {
+          alert('Senha atual incorreta!');
+          return;
+        }
+
+        const novaSenhaHash = CryptoJS.SHA256(novaSenha + SECRET_KEY).toString();
+        
+        await updateDoc(doc(db, 'usuarios', usuarioLogado.id), {
+          senha: novaSenhaHash
+        });
+        
+        usuarioLogado.senha = novaSenhaHash;
+        sessionStorage.setItem('usuarioLogado', JSON.stringify(usuarioLogado));
+        
+        alert('Senha alterada com sucesso!');
+        fecharModalTrocarSenha();
+      } catch (error) {
+        console.error("Erro:", error);
+        alert("Erro ao alterar senha");
+      }
+    };
+
+    // Tornar db disponível globalmente
+    window.db = db;
+  </script>
 </head>
 <body>
 
@@ -152,7 +258,7 @@
 
   <div id="formulario-senha" role="form" aria-labelledby="form-titulo">
     <h2 id="form-titulo">Área Exclusiva para Alunos</h2>
-    <form onsubmit="verificarSenha(); return false;">
+    <form onsubmit="verificarSenha(event); return false;">
       <label for="senha">Digite a senha de acesso:</label>
       <input type="password" id="senha" placeholder="Ex: aluno2025" aria-label="Senha de acesso" required>
       <button type="submit">Acessar Conteúdo</button>
@@ -176,7 +282,6 @@
     <h4>🎥 Vídeo Aula</h4>
     <video controls>
       <source src="" type="video/mp4">
-    
     </video>
   </div>
 
@@ -235,80 +340,6 @@
       localStorage.setItem('usuarios', JSON.stringify(usuarios));
     }
 
-    // Configuração do Firebase
-    const firebaseConfig = {
-      // suas credenciais do Firebase
-    };
-
-    firebase.initializeApp(firebaseConfig);
-    const db = firebase.firestore();
-
-    async function verificarSenha() {
-      const button = document.querySelector('button[type="submit"]');
-      button.disabled = true;
-      button.textContent = 'Verificando...';
-
-      const agora = new Date().getTime();
-      
-      // 4. Verifica se está bloqueado
-      if (loginAttempts >= 5 && (agora - lastAttemptTime) < 900000) {
-        const minutosRestantes = Math.ceil((900000 - (agora - lastAttemptTime)) / 60000);
-        alert(`Muitas tentativas. Tente novamente em ${minutosRestantes} minutos.`);
-        button.disabled = false;
-        button.textContent = 'Acessar Conteúdo';
-        return;
-      }
-      
-      // 5. Reseta bloqueio após 15 minutos
-      if ((agora - lastAttemptTime) >= 900000) {
-        loginAttempts = 0;
-      }
-
-      // 6. Verifica a senha
-      const senhaDigitada = document.getElementById("senha").value.trim();
-      const senhaHash = CryptoJS.SHA256(senhaDigitada + SECRET_KEY).toString();
-
-      try {
-        const usuarioDoc = await db.collection('usuarios')
-          .where('senha', '==', senhaHash)
-          .get();
-
-        if (!usuarioDoc.empty) {
-          const usuario = usuarioDoc.docs[0].data();
-          // 7. Login bem sucedido
-          loginAttempts = 0;
-          
-          // 8. Salva a sessão
-          const sessionData = {
-            nome: usuario.nome,
-            expira: new Date().getTime() + (2 * 60 * 60 * 1000) // 2 horas
-          };
-          
-          localStorage.setItem('sessaoAluno', 
-            CryptoJS.AES.encrypt(JSON.stringify(sessionData), SECRET_KEY).toString()
-          );
-
-          sessionStorage.setItem('usuarioLogado', JSON.stringify(usuario));
-
-          // 9. Mostra o conteúdo
-          document.getElementById("conteudo").style.display = "block";
-          document.getElementById("formulario-senha").style.display = "none";
-          document.getElementById("boasVindas").innerText = 
-            `Olá, ${usuario.nome}! Bem-vindo(a) à área exclusiva.`;
-        } else {
-          // 10. Senha incorreta
-          loginAttempts++;
-          lastAttemptTime = agora;
-          button.disabled = false;
-          button.textContent = 'Acessar Conteúdo';
-          alert(`Senha incorreta. Tentativa ${loginAttempts} de 5.`);
-        }
-      } catch (error) {
-        console.error("Erro:", error);
-        alert("Erro ao verificar senha");
-      }
-    }
-
     function logout() {
       // 11. Limpa a sessão
       localStorage.removeItem('sessaoAluno');
@@ -363,49 +394,6 @@
       document.getElementById('senhaAtual').value = '';
       document.getElementById('novaSenha').value = '';
       document.getElementById('confirmarSenha').value = '';
-    }
-
-    async function trocarSenha(event) {
-      event.preventDefault();
-      
-      const senhaAtual = document.getElementById('senhaAtual').value;
-      const novaSenha = document.getElementById('novaSenha').value;
-      const confirmarSenha = document.getElementById('confirmarSenha').value;
-      
-      // Verifica se as senhas novas coincidem
-      if (novaSenha !== confirmarSenha) {
-        alert('As senhas não coincidem!');
-        return;
-      }
-      
-      // Verifica a senha atual
-      const senhaAtualHash = CryptoJS.SHA256(senhaAtual + SECRET_KEY).toString();
-      const usuarioLogado = JSON.parse(sessionStorage.getItem('usuarioLogado'));
-      
-      if (senhaAtualHash !== usuarioLogado.senha) {
-        alert('Senha atual incorreta!');
-        return;
-      }
-      
-      try {
-        const usuarioDoc = await db.collection('usuarios')
-          .where('senha', '==', senhaAtualHash)
-          .get();
-
-        if (!usuarioDoc.empty) {
-          await db.collection('usuarios')
-            .doc(usuarioDoc.docs[0].id)
-            .update({
-              senha: CryptoJS.SHA256(novaSenha + SECRET_KEY).toString()
-            });
-            
-          alert('Senha alterada com sucesso!');
-          fecharModalTrocarSenha();
-        }
-      } catch (error) {
-        console.error("Erro:", error);
-        alert("Erro ao alterar senha");
-      }
     }
 
     // Adicione esta função ao final do script
