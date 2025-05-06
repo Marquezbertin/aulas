@@ -105,6 +105,7 @@
       margin-top: 20px;
     }
   </style>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
 </head>
 <body>
 
@@ -137,30 +138,109 @@
   </div>
 
   <script>
+    // 1. Definir uma chave secreta
+    const SECRET_KEY = "chave_secreta_2025_projeto_educacional";
+    
+    // 2. Controle de tentativas
+    let loginAttempts = 0;
+    let lastAttemptTime = 0;
+    
+    // 3. Lista de usuários com senhas criptografadas
     const usuarios = [
-      { nome: "Ana", senha: "ana2024" },
-      { nome: "Carlos", senha: "car123" },
-      { nome: "Bruno QA", senha: "qaBruno" },
-      { nome: "Teste", senha: "1234" }
+      { 
+        nome: "Ana", 
+        senha: CryptoJS.SHA256("ana2024" + SECRET_KEY).toString()
+      },
+      { 
+        nome: "Carlos", 
+        senha: CryptoJS.SHA256("car123" + SECRET_KEY).toString()
+      },
+      { 
+        nome: "Bruno QA", 
+        senha: CryptoJS.SHA256("qaBruno" + SECRET_KEY).toString()
+      },
+      { 
+        nome: "Teste", 
+        senha: CryptoJS.SHA256("1234" + SECRET_KEY).toString()
+      }
     ];
 
     function verificarSenha() {
+      const agora = new Date().getTime();
+      
+      // 4. Verifica se está bloqueado
+      if (loginAttempts >= 5 && (agora - lastAttemptTime) < 900000) {
+        const minutosRestantes = Math.ceil((900000 - (agora - lastAttemptTime)) / 60000);
+        alert(`Muitas tentativas. Tente novamente em ${minutosRestantes} minutos.`);
+        return;
+      }
+      
+      // 5. Reseta bloqueio após 15 minutos
+      if ((agora - lastAttemptTime) >= 900000) {
+        loginAttempts = 0;
+      }
+
+      // 6. Verifica a senha
       const senhaDigitada = document.getElementById("senha").value.trim();
-      const usuario = usuarios.find(u => u.senha === senhaDigitada);
+      const senhaHash = CryptoJS.SHA256(senhaDigitada + SECRET_KEY).toString();
+      const usuario = usuarios.find(u => u.senha === senhaHash);
 
       if (usuario) {
+        // 7. Login bem sucedido
+        loginAttempts = 0;
+        
+        // 8. Salva a sessão
+        const sessionData = {
+          nome: usuario.nome,
+          expira: new Date().getTime() + (2 * 60 * 60 * 1000) // 2 horas
+        };
+        
+        localStorage.setItem('sessaoAluno', 
+          CryptoJS.AES.encrypt(JSON.stringify(sessionData), SECRET_KEY).toString()
+        );
+
+        // 9. Mostra o conteúdo
         document.getElementById("conteudo").style.display = "block";
         document.getElementById("formulario-senha").style.display = "none";
-        document.getElementById("boasVindas").innerText = `Olá, ${usuario.nome}! Bem-vindo(a) à área exclusiva.`;
+        document.getElementById("boasVindas").innerText = 
+          `Olá, ${usuario.nome}! Bem-vindo(a) à área exclusiva.`;
       } else {
-        alert("Senha incorreta. Tente novamente.");
+        // 10. Senha incorreta
+        loginAttempts++;
+        lastAttemptTime = agora;
+        alert(`Senha incorreta. Tentativa ${loginAttempts} de 5.`);
       }
     }
 
     function logout() {
+      // 11. Limpa a sessão
+      localStorage.removeItem('sessaoAluno');
       document.getElementById("conteudo").style.display = "none";
       document.getElementById("formulario-senha").style.display = "block";
       document.getElementById("senha").value = "";
+    }
+
+    // 12. Verifica sessão ao carregar
+    window.onload = function() {
+      const sessaoEncriptada = localStorage.getItem('sessaoAluno');
+      
+      if (sessaoEncriptada) {
+        try {
+          const bytes = CryptoJS.AES.decrypt(sessaoEncriptada, SECRET_KEY);
+          const sessaoData = JSON.parse(bytes.toString(CryptoJS.enc.Utf8));
+          
+          if (sessaoData.expira > new Date().getTime()) {
+            document.getElementById("conteudo").style.display = "block";
+            document.getElementById("formulario-senha").style.display = "none";
+            document.getElementById("boasVindas").innerText = 
+              `Olá, ${sessaoData.nome}! Bem-vindo(a) à área exclusiva.`;
+          } else {
+            localStorage.removeItem('sessaoAluno');
+          }
+        } catch (e) {
+          localStorage.removeItem('sessaoAluno');
+        }
+      }
     }
   </script>
 
