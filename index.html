@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Conteúdo Exclusivo para Alunos</title>
+  <style>
+    :root {
+      --primaria: #4CAF50;
+      --secundaria: #2E7D32;
+      --claro: #ffffff;
+      --escuro: #222;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: #f0f0f0;
+      color: var(--escuro);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 40px 20px;
+    }
+
+    h2 {
+      margin-bottom: 20px;
+      color: var(--secundaria);
+    }
+
+    #formulario-senha {
+      background: var(--claro);
+      padding: 20px;
+      border-radius: 10px;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+      max-width: 400px;
+      width: 100%;
+      text-align: center;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 8px;
+      font-weight: bold;
+    }
+
+    input[type="password"] {
+      width: 100%;
+      padding: 12px;
+      margin-bottom: 10px;
+      border-radius: 5px;
+      border: 1px solid #ccc;
+      font-size: 16px;
+    }
+
+    button {
+      background-color: var(--primaria);
+      color: var(--claro);
+      border: none;
+      padding: 12px 20px;
+      font-size: 16px;
+      border-radius: 5px;
+      cursor: pointer;
+      transition: background 0.3s;
+    }
+
+    button:hover {
+      background-color: var(--secundaria);
+    }
+
+    #conteudo {
+      display: none;
+      margin-top: 40px;
+      width: 100%;
+      max-width: 800px;
+      background: var(--claro);
+      padding: 30px;
+      border-radius: 10px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+      position: relative;
+    }
+
+    #logout {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      background-color: crimson;
+      color: white;
+    }
+
+    iframe, video {
+      width: 100%;
+      border: none;
+      margin: 20px 0;
+      border-radius: 8px;
+    }
+
+    h3, h4 {
+      color: var(--secundaria);
+      margin-top: 20px;
+    }
+  </style>
+</head>
+<body>
+
+  <h2>Área Exclusiva para Alunos</h2>
+
+  <div id="formulario-senha">
+    <form onsubmit="verificarSenha(); return false;">
+      <label for="senha">Digite a senha de acesso:</label>
+      <input type="password" id="senha" placeholder="Ex: aluno2025" aria-label="Senha de acesso" required>
+      <button type="submit">Acessar Conteúdo</button>
+    </form>
+  </div>
+
+  <div id="conteudo">
+    <button id="logout" onclick="logout()">Sair</button>
+    <h3 id="boasVindas"></h3>
+    <p>Aproveite os materiais abaixo:</p>
+
+    <h4>🧠 Quiz Interativo</h4>
+    <iframe src="https://seusite.com/quiz.html" height="300"></iframe>
+
+    <h4>📝 Formulário de Avaliação</h4>
+    <iframe src="https://seusite.com/formulario.html" height="300"></iframe>
+
+    <h4>🎥 Vídeo Aula</h4>
+    <video controls>
+      <source src="https://seusite.com/video.mp4" type="video/mp4">
+      Seu navegador não suporta vídeos.
+    </video>
+  </div>
+
+  <script>
+    const usuarios = [
+      { nome: "Ana", senha: "ana2024" },
+      { nome: "Carlos", senha: "car123" },
+      { nome: "Bruno QA", senha: "qaBruno" },
+      { nome: "Teste", senha: "1234" }
+    ];
+
+    function verificarSenha() {
+      const senhaDigitada = document.getElementById("senha").value.trim();
+      const usuario = usuarios.find(u => u.senha === senhaDigitada);
+
+      if (usuario) {
+        document.getElementById("conteudo").style.display = "block";
+        document.getElementById("formulario-senha").style.display = "none";
+        document.getElementById("boasVindas").innerText = `Olá, ${usuario.nome}! Bem-vindo(a) à área exclusiva.`;
+      } else {
+        alert("Senha incorreta. Tente novamente.");
+      }
+    }
+
+    function logout() {
+      document.getElementById("conteudo").style.display = "none";
+      document.getElementById("formulario-senha").style.display = "block";
+      document.getElementById("senha").value = "";
+    }
+  </script>
+
+</body>
+</html>
