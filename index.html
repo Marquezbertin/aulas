@@ -114,6 +114,25 @@
       display: none;
       /* Adicionar estilo para spinner de carregamento */
     }
+
+    #modalTrocarSenha input {
+      width: 100%;
+      padding: 12px;
+      margin: 8px 0 16px;
+      border-radius: 5px;
+      border: 1px solid #ccc;
+    }
+    
+    #modalTrocarSenha button {
+      margin: 0 10px;
+    }
+    
+    .senha-error {
+      color: #ff4444;
+      font-size: 14px;
+      margin-top: -10px;
+      margin-bottom: 10px;
+    }
   </style>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
   <!-- Adicionar preload para recursos importantes -->
@@ -138,6 +157,9 @@
 
   <div id="conteudo">
     <button id="logout" onclick="logout()">Sair</button>
+    <button id="trocarSenha" onclick="abrirModalTrocarSenha()" style="position: absolute; top: 20px; right: 100px; background-color: var(--primaria);">
+      Trocar Senha
+    </button>
     <h3 id="boasVindas"></h3>
     <p>Aproveite os materiais abaixo:</p>
 
@@ -152,6 +174,28 @@
       <source src="" type="video/mp4">
     
     </video>
+  </div>
+
+  <!-- Adicione o modal de troca de senha antes do fechamento do body -->
+  <div id="modalTrocarSenha" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000;">
+    <div style="background: white; padding: 20px; border-radius: 10px; width: 90%; max-width: 400px; margin: 50px auto; position: relative;">
+      <h3>Trocar Senha</h3>
+      <form onsubmit="trocarSenha(event)">
+        <label for="senhaAtual">Senha Atual:</label>
+        <input type="password" id="senhaAtual" required>
+        
+        <label for="novaSenha">Nova Senha:</label>
+        <input type="password" id="novaSenha" required>
+        
+        <label for="confirmarSenha">Confirmar Nova Senha:</label>
+        <input type="password" id="confirmarSenha" required>
+        
+        <div style="margin-top: 20px;">
+          <button type="submit">Salvar</button>
+          <button type="button" onclick="fecharModalTrocarSenha()" style="background-color: #ccc;">Cancelar</button>
+        </div>
+      </form>
+    </div>
   </div>
 
   <script>
@@ -282,6 +326,53 @@
     window.onerror = function(msg, url, line) {
       console.error(`Erro: ${msg} na linha ${line}`);
       alert('Ocorreu um erro. Por favor, tente novamente mais tarde.');
+    }
+
+    function abrirModalTrocarSenha() {
+      document.getElementById('modalTrocarSenha').style.display = 'block';
+    }
+
+    function fecharModalTrocarSenha() {
+      document.getElementById('modalTrocarSenha').style.display = 'none';
+      document.getElementById('senhaAtual').value = '';
+      document.getElementById('novaSenha').value = '';
+      document.getElementById('confirmarSenha').value = '';
+    }
+
+    function trocarSenha(event) {
+      event.preventDefault();
+      
+      const senhaAtual = document.getElementById('senhaAtual').value;
+      const novaSenha = document.getElementById('novaSenha').value;
+      const confirmarSenha = document.getElementById('confirmarSenha').value;
+      
+      // Verifica se as senhas novas coincidem
+      if (novaSenha !== confirmarSenha) {
+        alert('As senhas não coincidem!');
+        return;
+      }
+      
+      // Verifica a senha atual
+      const senhaAtualHash = CryptoJS.SHA256(senhaAtual + SECRET_KEY).toString();
+      const usuarioLogado = JSON.parse(sessionStorage.getItem('usuarioLogado'));
+      
+      if (senhaAtualHash !== usuarioLogado.senha) {
+        alert('Senha atual incorreta!');
+        return;
+      }
+      
+      // Atualiza a senha no array de usuários
+      const index = usuarios.findIndex(u => u.senha === senhaAtualHash);
+      if (index !== -1) {
+        usuarios[index].senha = CryptoJS.SHA256(novaSenha + SECRET_KEY).toString();
+        
+        // Atualiza a sessão
+        usuarioLogado.senha = usuarios[index].senha;
+        sessionStorage.setItem('usuarioLogado', JSON.stringify(usuarioLogado));
+        
+        alert('Senha alterada com sucesso!');
+        fecharModalTrocarSenha();
+      }
     }
   </script>
 
